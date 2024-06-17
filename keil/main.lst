@@ -1,0 +1,504 @@
+C51 COMPILER V9.54   MAIN                                                                  06/14/2024 03:41:17 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.obj
+COMPILER INVOKED BY: D:\keil_51\C51\BIN\C51.EXE User\main.c OPTIMIZE(8,SPEED) BROWSE INCDIR(.\App\key_matrix;.\App\lcd16
+                    -02;.\Public;.\User;.\App\key_fun;.\App\beep) DEBUG OBJECTEXTEND PRINT(.\main.lst) TABS(2) OBJECT(main.obj)
+
+line level    source
+
+   1          #include "reg52.h"
+   2          #include "stdlib.h"
+   3          
+   4          #include "public.h"
+   5          
+   6          #include "beep.h"
+   7          #include "key_fun.h"
+   8          #include "lcd1602.h"
+   9          #include "key_matrix.h"
+  10          
+  11          //是否处于计算完成状态
+  12          u8 i,is_calculate=0;
+  13          int count_array_value[8]={0};
+  14          char count_array_symbol[11]={' '};
+  15          //矩阵键盘下标
+  16          u8 key=0;
+  17          //功能键
+  18          u8 key_fun=0;
+  19          //矩阵键盘列表
+  20          u8 gsmg_code[16]={'7','8','9','/','4','5','6','*',
+  21                  '1','2','3','-','0','.','=','+'};
+  22          //lcd第一行显示内容
+  23          u8 lcd0_show[17]={' ',' ',' ',' ',' ',' ',' ',' ',
+  24                  ' ',' ',' ',' ',' ',' ',' ',' ','\0'};
+  25          /*
+  26          //lcd第二行显示内容
+  27          u8 lcd1_show[17]={' ',' ',' ',' ',' ',' ',' ',' ',
+  28                  ' ',' ',' ',' ',' ',' ',' ',' ','\0'};
+  29          */
+  30          
+  31          //获取显示数组的可插入位置    
+  32          int get_show_end(u8 show[]){
+  33   1        for(i=0;i<16;i++){
+  34   2          if(show[i]==' '){
+  35   3            return i;
+  36   3          }
+  37   2        }
+  38   1        return -1;
+  39   1      }
+  40          //删除末尾数据
+  41          void del_show_end(){
+  42   1        i=get_show_end(lcd0_show);
+  43   1        if(i>0){
+  44   2          lcd0_show[i-1]=' ';
+  45   2        }
+  46   1        lcd1602_show_string(0, 0, lcd0_show);
+  47   1      }
+  48          //重置
+  49          void reset_show(){
+  50   1        for(i=0;i<16;i++){
+  51   2          lcd0_show[i]=' ';
+  52   2        }
+  53   1        is_calculate=0;
+  54   1        lcd1602_show_string(0, 0, lcd0_show);
+C51 COMPILER V9.54   MAIN                                                                  06/14/2024 03:41:17 PAGE 2   
+
+  55   1        lcd1602_show_string(0, 1, lcd0_show);
+  56   1        beep_work(500);
+  57   1      }
+  58          //写入错误
+  59          void write_error(){
+  60   1        lcd1602_show_string(0, 1, "          ERROR!");
+  61   1        beep_work(500);
+  62   1      }
+  63          //写入
+  64          void write_show(u8 write,u8 show[]){
+  65   1        u8 write_site=get_show_end(show);
+  66   1        if(write=='*'||write=='/'){
+  67   2          if(write_site==0||show[write_site-1]=='('){
+  68   3            beep_work(500);
+  69   3          }else if(show[write_site-1]=='+'||show[write_site-1]=='-'
+  70   2          ||show[write_site-1]=='*'||show[write_site-1]=='/'){
+  71   3            show[write_site-1]=write;
+  72   3          }else{
+  73   3            show[write_site]=write;
+  74   3          }
+  75   2        }else if(write=='-'){
+  76   2          if(write_site==0){
+  77   3            show[write_site]=write;
+  78   3          }else if(show[write_site-1]=='+'){
+  79   3            show[write_site-1]=write;
+  80   3          }else if(show[write_site-1]=='-'){
+  81   3            beep_work(500);
+  82   3          }else{
+  83   3            show[write_site]=write;
+  84   3          }
+  85   2        }else if(write=='+'){
+  86   2          if(write_site==0||show[write_site-1]=='('){
+  87   3            beep_work(500);
+  88   3          }else if(show[write_site-1]=='*'||show[write_site-1]=='/'||show[write_site-1]=='+'){
+  89   3            show[write_site-1]=write;
+  90   3          }else if(show[write_site-1]=='-'){
+  91   3            if(show[write_site-2]=='+'||show[write_site-2]=='-'
+  92   3          ||show[write_site-2]=='*'||show[write_site-2]=='/'||show[write_site-2]=='('){
+  93   4              beep_work(500);
+  94   4            }else{
+  95   4              show[write_site-1]=write;
+  96   4            }
+  97   3          }else{
+  98   3            show[write_site]=write;
+  99   3          }
+ 100   2        }else if(write=='('){
+ 101   2          if(write_site==0){
+ 102   3            show[write_site]=write;
+ 103   3          }else if(show[write_site-1]=='+'||show[write_site-1]=='-'
+ 104   2          ||show[write_site-1]=='*'||show[write_site-1]=='/'){
+ 105   3            show[write_site]=write;
+ 106   3          }else{
+ 107   3            beep_work(500);
+ 108   3          }
+ 109   2        }else if(write==')'){
+ 110   2          if(write_site==0){
+ 111   3            beep_work(500);
+ 112   3          }else if(show[write_site-1]=='+'||show[write_site-1]=='-'
+ 113   2          ||show[write_site-1]=='*'||show[write_site-1]=='/'){
+ 114   3            beep_work(500);
+ 115   3          }else{
+ 116   3            show[write_site]=write;
+C51 COMPILER V9.54   MAIN                                                                  06/14/2024 03:41:17 PAGE 3   
+
+ 117   3          }
+ 118   2        }else if(write=='.'){
+ 119   2        
+ 120   2        
+ 121   2        }else{
+ 122   2          if(show[write_site-1]==')'){
+ 123   3            beep_work(500);
+ 124   3          }else{
+ 125   3            show[write_site]=write;
+ 126   3          }
+ 127   2        }
+ 128   1        return;
+ 129   1      }
+ 130          //int转char
+ 131          char* Int_to_String(int num,char *str){
+ 132   1        int i = 0; 
+ 133   1        int j = 0;
+ 134   1        if(num<0)
+ 135   1        {
+ 136   2          num = -num;
+ 137   2          str[i++] = '-';
+ 138   2        } 
+ 139   1        do
+ 140   1        {
+ 141   2          str[i++] = num%10+'0';
+ 142   2          num /= 10;
+ 143   2        }while(num);
+ 144   1        
+ 145   1        str[i] = '\0';
+ 146   1        
+ 147   1        if(str[0]=='-')
+ 148   1        {
+ 149   2          j = 1;
+ 150   2          ++i;
+ 151   2        }
+ 152   1        for(;j<i/2;j++)
+ 153   1        {
+ 154   2          str[j] = str[j] + str[i-1-j];
+ 155   2          str[i-1-j] = str[j] - str[i-1-j];
+ 156   2          str[j] = str[j] - str[i-1-j];
+ 157   2        } 
+ 158   1        
+ 159   1        return str;//??????? 
+ 160   1      }
+ 161          
+ 162          //char转int
+ 163          int String_to_Int(const char *str,char **s){
+ 164   1        char flag = '+';//????????? 
+ 165   1        long res = 0;
+ 166   1        
+ 167   1        if(*str=='-')//?????? 
+ 168   1        {
+ 169   2          ++str;//??????? 
+ 170   2          flag = '-';//??????? 
+ 171   2        } 
+ 172   1        //??????,??????res 
+ 173   1        while(*str>='0' && *str<='9')//??????????,??0~9?ASCII?:48~57 
+ 174   1        {
+ 175   2          res = 10*res+  *str++ - '0';//??'0'?ASCII??48,48-48=0???????0 
+ 176   2        } 
+ 177   1       
+ 178   1          if(flag == '-')//????????
+C51 COMPILER V9.54   MAIN                                                                  06/14/2024 03:41:17 PAGE 4   
+
+ 179   1        {
+ 180   2          res = -res;
+ 181   2        }
+ 182   1        *s=str;
+ 183   1        return (int)res;
+ 184   1      }
+ 185          
+ 186          //找括号
+ 187          u8 find_bracket(u8 j){
+ 188   1        for(;j>=0;j--){
+ 189   2          if(count_array_symbol[j]=='('){
+ 190   3            return j;
+ 191   3          }
+ 192   2        }
+ 193   1        return (u8)11;
+ 194   1      }
+ 195          
+ 196          //计算
+ 197          u8 calculate(u8 j,u8 z){
+ 198   1        u8 show[5]={" "};
+ 199   1        //Int_to_String(j,show);
+ 200   1        //lcd1602_show_string(9, 0, show);
+ 201   1        //lcd1602_show_string(10, 0, count_array_symbol);
+ 202   1        switch(count_array_symbol[j]){
+ 203   2          case '+':
+ 204   2            //lcd1602_show_string(10, 0, "+");
+ 205   2            //Int_to_String(count_array_value[z-1],show);
+ 206   2            //lcd1602_show_string(10, 0, show);
+ 207   2            count_array_value[z-1]=count_array_value[z-1]+count_array_value[z];
+ 208   2            //Int_to_String(count_array_value[z-1],show);
+ 209   2            //lcd1602_show_string(10, 0, show);
+ 210   2            count_array_symbol[j]=' ';
+ 211   2            break;
+ 212   2          case '-':
+ 213   2            count_array_value[z-1]=count_array_value[z-1]-count_array_value[z];
+ 214   2            count_array_symbol[z]=' ';
+ 215   2            break;
+ 216   2          case '*':
+ 217   2            //lcd1602_show_string(10, 0, "*");
+ 218   2            count_array_value[z-1]=count_array_value[z-1]*count_array_value[z];
+ 219   2            count_array_symbol[z]=' ';
+ 220   2            break;
+ 221   2          case '/':
+ 222   2            count_array_value[z-1]=count_array_value[i-1]/count_array_value[z];
+ 223   2            count_array_symbol[z]=' ';
+ 224   2            break;
+ 225   2          default:
+ 226   2            write_error();
+ 227   2            return;
+*** WARNING C173 IN LINE 227 OF User\main.c: missing return-expression
+ 228   2        }
+ 229   1        return j;
+ 230   1      }
+ 231          //后波兰算法
+ 232          void post_Poland(){
+ 233   1        char show[16]={' '};
+ 234   1        u8 j=0,z=0,p=0,f=0,*show_subscript=&lcd0_show[0];
+ 235   1      
+ 236   1        show[15]='\0';
+ 237   1        
+ 238   1        for(;show_subscript!=&lcd0_show[get_show_end(lcd0_show)];){
+ 239   2          if(*show_subscript=='+'||*show_subscript=='*'||*show_subscript=='/'
+C51 COMPILER V9.54   MAIN                                                                  06/14/2024 03:41:17 PAGE 5   
+
+ 240   2          ||*show_subscript=='('||*show_subscript==')'){
+ 241   3          
+ 242   3          }else{
+ 243   3            count_array_value[z++]=String_to_Int(show_subscript,&show_subscript);
+ 244   3          }
+ 245   2          
+ 246   2          
+ 247   2          //Int_to_String(z,show);
+ 248   2          //lcd1602_show_string(1, 0, show);
+ 249   2          
+ 250   2          
+ 251   2          if(show_subscript==&lcd0_show[get_show_end(lcd0_show)]){
+ 252   3            //lcd1602_show_string(10, 0, "<");
+ 253   3            //lcd1602_show_string(10, 0, count_array_symbol);
+ 254   3            for(;j!=0;){
+ 255   4              
+ 256   4              //lcd1602_show_string(10, 0, "<");
+ 257   4              j=calculate(j-1,--z);
+ 258   4            }
+ 259   3            //lcd1602_show_string(10, 0, "P");
+ 260   3            
+ 261   3            break;
+ 262   3          }
+ 263   2          
+ 264   2          for(;*show_subscript=='+'||*show_subscript=='-'||*show_subscript=='*'
+ 265   2          ||*show_subscript=='/'||*show_subscript=='('||*show_subscript==')';){
+ 266   3      
+ 267   3            if(j==0){
+ 268   4              if(*show_subscript=='('){
+ 269   5                p++;
+ 270   5              }else if(*show_subscript==')'){
+ 271   5                write_error();
+ 272   5                return;
+ 273   5              }
+ 274   4              //Int_to_String(j,show);
+ 275   4              //lcd1602_show_string(8, 0, show);
+ 276   4              //lcd1602_show_string(8, 0, show_subscript);
+ 277   4              count_array_symbol[j++]=*show_subscript++;
+ 278   4              //lcd1602_show_string(10, 0, "P");
+ 279   4              //lcd1602_show_string(10, 0, count_array_symbol);
+ 280   4            }else if(count_array_symbol[j-1]=='('){
+ 281   4              if(*show_subscript=='('){
+ 282   5                p++;
+ 283   5              }else if(*show_subscript==')'){
+ 284   5                write_error();
+ 285   5                return;
+ 286   5              }
+ 287   4              count_array_symbol[j++]=*show_subscript++;
+ 288   4            }else if(*show_subscript=='+'||*show_subscript=='-'){
+ 289   4              if(p){
+ 290   5                f=find_bracket(j);
+ 291   5                for(;j!=f+1;){
+ 292   6                  j=calculate(j-1,--z);
+ 293   6                }
+ 294   5              }else{
+ 295   5                for(;j!=0;){
+ 296   6                  j=calculate(j-1,--z);
+ 297   6                }
+ 298   5              }
+ 299   4              count_array_symbol[j++]=*show_subscript++;
+ 300   4            }else if(*show_subscript=='*'||*show_subscript=='/'){
+ 301   4              if(p){
+C51 COMPILER V9.54   MAIN                                                                  06/14/2024 03:41:17 PAGE 6   
+
+ 302   5                f=find_bracket(j);
+ 303   5                for(;j!=f+1;){
+ 304   6                  if(count_array_symbol[j-1]=='+'||count_array_symbol[j-1]=='+'){
+ 305   7                    
+ 306   7                    break;
+ 307   7                  }
+ 308   6                  j=calculate(j-1,--z);
+ 309   6                }
+ 310   5              }else{
+ 311   5                for(;j!=0;){
+ 312   6                  //lcd1602_show_string(10, 0, count_array_symbol);
+ 313   6                  if(count_array_symbol[j-1]=='+'||count_array_symbol[j-1]=='-'){
+ 314   7                    //lcd1602_show_string(10, 0, "*");
+ 315   7                    break;
+ 316   7                  }
+ 317   6                  j=calculate(j-1,--z);
+ 318   6                }
+ 319   5              }
+ 320   4              //lcd1602_show_string(10, 0, "*");
+ 321   4              count_array_symbol[j++]=*show_subscript++;
+ 322   4            }else if(*show_subscript=='('){
+ 323   4              if(*show_subscript=='('){
+ 324   5                p++;
+ 325   5              }else if(*show_subscript==')'){
+ 326   5                write_error();
+ 327   5                return;
+ 328   5              }
+ 329   4              count_array_symbol[j++]=*show_subscript++;
+ 330   4            }else if(*show_subscript==')'){
+ 331   4              if(p){
+ 332   5                //lcd1602_show_string(10, 0, ")");
+ 333   5                p--;
+ 334   5                f=find_bracket(j);
+ 335   5        
+ 336   5                //Int_to_String(f,show);
+ 337   5                //lcd1602_show_string(8, 0, show);
+ 338   5                //Int_to_String(j,show);
+ 339   5                //lcd1602_show_string(9, 0, show);
+ 340   5        
+ 341   5                for(;j!=f+1;){
+ 342   6                  j=calculate(j-1,--z);
+ 343   6                }
+ 344   5                
+ 345   5                //Int_to_String(count_array_value[z],show);
+ 346   5                //lcd1602_show_string(10, 0, show);
+ 347   5      
+ 348   5                --j;
+ 349   5                //Int_to_String(j,show);
+ 350   5                //lcd1602_show_string(10, 0, show);
+ 351   5                //Int_to_String(z,show);
+ 352   5                //lcd1602_show_string(9, 0, show);
+ 353   5                count_array_symbol[j]=' ';
+ 354   5                show_subscript++;
+ 355   5              }else{
+ 356   5                write_error();
+ 357   5                return;
+ 358   5              }
+ 359   4            }
+ 360   3            
+ 361   3            //show_subscript++;
+ 362   3          }
+ 363   2          
+C51 COMPILER V9.54   MAIN                                                                  06/14/2024 03:41:17 PAGE 7   
+
+ 364   2          
+ 365   2          
+ 366   2          if(show_subscript==&lcd0_show[get_show_end(lcd0_show)]){
+ 367   3            //lcd1602_show_string(10, 0, "<");
+ 368   3            //lcd1602_show_string(10, 0, count_array_symbol);
+ 369   3            for(;j!=0;){
+ 370   4              
+ 371   4              //lcd1602_show_string(10, 0, "<");
+ 372   4              j=calculate(j-1,--z);
+ 373   4            }
+ 374   3            //lcd1602_show_string(10, 0, "P");
+ 375   3            
+ 376   3            break;
+ 377   3          }
+ 378   2          
+ 379   2        }
+ 380   1        
+ 381   1        
+ 382   1        //count_array_value[0]=String_to_Int(show_subscript,&show_subscript);
+ 383   1        //show_subscript++;
+ 384   1        //lcd1602_show_string(1, 1, show_subscript);
+ 385   1        
+ 386   1        
+ 387   1        Int_to_String(count_array_value[0],show);
+ 388   1        lcd1602_show_string(0, 1, "=");
+ 389   1        lcd1602_show_string(1, 1, show);
+ 390   1        
+ 391   1      }
+ 392          //运算开始
+ 393          void evaluation(){
+ 394   1        int left_bracket_count=0,right_bracket_count=0;
+ 395   1        is_calculate=1;
+ 396   1        if(lcd0_show[get_show_end(lcd0_show)-1]=='+'||lcd0_show[get_show_end(lcd0_show)-1]=='-'||lcd0_show[get_sh
+             -ow_end(lcd0_show)-1]=='*'
+ 397   1          ||lcd0_show[get_show_end(lcd0_show)-1]=='/'||lcd0_show[get_show_end(lcd0_show)-1]=='('){
+ 398   2          write_error();
+ 399   2          lcd1602_show_string(0, 1, "1^");
+ 400   2          return;
+ 401   2        }
+ 402   1        for(i=0;i<16;i++){
+ 403   2          if(lcd0_show[i]=='('){
+ 404   3            left_bracket_count++;
+ 405   3          }else if(lcd0_show[i]==')'){
+ 406   3            right_bracket_count++;
+ 407   3          }
+ 408   2        }
+ 409   1        if(left_bracket_count!=right_bracket_count){
+ 410   2          write_error();
+ 411   2          return;
+ 412   2        }
+ 413   1        post_Poland();
+ 414   1      }
+ 415          
+ 416          //主函数
+ 417          void main()
+ 418          {
+ 419   1        lcd1602_init(); // LCD1602初始化
+ 420   1        
+ 421   1        while(1)
+ 422   1        {
+ 423   2          //获取按钮输入
+ 424   2          key_fun = key_scan(0);
+C51 COMPILER V9.54   MAIN                                                                  06/14/2024 03:41:17 PAGE 8   
+
+ 425   2          key=key_matrix_ranks_scan();
+ 426   2          //判断是否处于计算完成的状态
+ 427   2          if(is_calculate){
+ 428   3            //重置按钮被按下
+ 429   3            if(key_fun==KEY_RESET_PRESS){
+ 430   4              reset_show();
+ 431   4            }
+ 432   3          }else{
+ 433   3            //判断功能键是否被按下
+ 434   3            switch(key_fun){
+ 435   4              //重置按钮被按下
+ 436   4              case KEY_RESET_PRESS:
+ 437   4                reset_show();
+ 438   4                break;
+ 439   4              //删除
+ 440   4              case KEY_DELETE_PRESS:
+ 441   4                del_show_end();
+ 442   4                break; 
+ 443   4              //左括号
+ 444   4              case KEY_LEFT_BRACKET_PRESS:
+ 445   4                write_show('(',lcd0_show);
+ 446   4                lcd1602_show_string(0, 0, lcd0_show);
+ 447   4                break;
+ 448   4              //右括号
+ 449   4              case KEY_RIGHT_BRACKET_PRESS:
+ 450   4                write_show(')',lcd0_show);
+ 451   4                lcd1602_show_string(0, 0, lcd0_show);
+ 452   4                break;
+ 453   4            }
+ 454   3            //判断是否有不为=的输入
+ 455   3            if(key!=0&&key!=15){
+ 456   4              write_show(gsmg_code[key-1],lcd0_show);
+ 457   4              lcd1602_show_string(0, 0, lcd0_show);
+ 458   4            }else if(key==15){
+ 459   4              evaluation();
+ 460   4            }
+ 461   3          } 
+ 462   2        }
+ 463   1      }
+*** WARNING C291 IN LINE 230 OF User\main.c: not every exit path returns a value
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2517    ----
+   CONSTANT SIZE    =     43    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     64      62
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

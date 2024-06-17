@@ -1,0 +1,8 @@
+"main.obj",
+"lcd1602.obj",
+"key_matrix.obj",
+"key_fun.obj",
+"beep.obj",
+"public.obj" 
+TO "template" 
+RAMSIZE(256) 
