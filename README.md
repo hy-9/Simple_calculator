@@ -1,0 +1,2 @@
+# Simple_calculator
+使用STC89C52完成的包含加减乘和括号的2万以内的优先级运算。
