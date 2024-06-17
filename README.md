@@ -48,4 +48,5 @@
 ---
 ## 相关地址
 [项目地址](https://github.com/hy-9/Simple_calculator)
-[个人博客](haiyao.site "haiyao.site")
+
+[个人博客](http://haiyao.site "haiyao.site")
